@@ -1,0 +1,60 @@
+"""
+Models package for Agent Task Assignment system
+"""
+
+# Import base models first
+from .agent import Agent, AgentStat, Department
+from .task import Task, TaskAssignment
+from .prompt import Prompt, PromptParameter, PromptParameterType
+from .outcome import TaskOutcome, OutcomeOption, OutcomeType, StatModifier
+
+# Import request/response models
+from .requests import (
+    TaskAssignmentRequest,
+    PromptEvaluationRequest,
+    PromptRefinementRequest,
+    TaskCompletionRequest
+)
+from .responses import (
+    TaskAssignmentResponse,
+    PromptEvaluationResponse,
+    PromptRefinementResponse,
+    TaskCompletionResponse,
+    AgentFeedbackResponse,
+    ErrorResponse
+)
+
+__all__ = [
+    # Agent models
+    "Agent",
+    "AgentStat",
+    "Department",
+    
+    # Task models
+    "Task",
+    "TaskAssignment",
+    
+    # Prompt models
+    "Prompt",
+    "PromptParameter",
+    "PromptParameterType",
+    
+    # Outcome models
+    "TaskOutcome",
+    "OutcomeOption",
+    "OutcomeType",
+    
+    # Request models
+    "TaskAssignmentRequest",
+    "PromptEvaluationRequest",
+    "PromptRefinementRequest",
+    "TaskCompletionRequest",
+    
+    # Response models
+    "TaskAssignmentResponse",
+    "PromptEvaluationResponse",
+    "PromptRefinementResponse",
+    "TaskCompletionResponse",
+    "AgentFeedbackResponse",
+    "ErrorResponse",
+]

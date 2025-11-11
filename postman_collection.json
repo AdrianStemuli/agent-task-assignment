@@ -1,0 +1,157 @@
+{
+  "info": {
+    "name": "Agent Task Assignment API",
+    "description": "Collection for testing the Agent Task Assignment System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8001/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Assign Task",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Agent\": {\n    \"Name\": \"Bob\",\n    \"Department\": \"Research\",\n    \"Stats\": [\n      {\"Name\": \"Expertise\", \"Value\": 5},\n      {\"Name\": \"Quality\", \"Value\": 5},\n      {\"Name\": \"Reliability\", \"Value\": 6},\n      {\"Name\": \"Speed\", \"Value\": 3},\n      {\"Name\": \"Capacity\", \"Value\": 2}\n    ]\n  },\n  \"Task\": {\n    \"Title\": \"Write email campaign\",\n    \"Description\": \"Write an email campaign that aims to increase retention\"\n  },\n  \"Prompt\": {\n    \"Text\": \"Write an email to customers\",\n    \"Parameters\": [\n      {\"Name\": \"Agency\", \"Value\": 1},\n      {\"Name\": \"Clarity\", \"Value\": 5}\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8001/tasks/assign",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["tasks", "assign"]
+        }
+      }
+    },
+    {
+      "name": "Evaluate Prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Agent\": {\n    \"Name\": \"Bob\",\n    \"Department\": \"Research\",\n    \"Stats\": [\n      {\"Name\": \"Expertise\", \"Value\": 5},\n      {\"Name\": \"Quality\", \"Value\": 5},\n      {\"Name\": \"Reliability\", \"Value\": 6},\n      {\"Name\": \"Speed\", \"Value\": 3},\n      {\"Name\": \"Capacity\", \"Value\": 2}\n    ]\n  },\n  \"Task\": {\n    \"Title\": \"Write email campaign\",\n    \"Description\": \"Write an email campaign that aims to increase retention\"\n  },\n  \"Prompt\": {\n    \"Text\": \"Hey Bob! Write an email campaign to increase retention.\",\n    \"Parameters\": [\n      {\"Name\": \"Clarity\", \"Value\": 5},\n      {\"Name\": \"Context\", \"Value\": 3}\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8001/prompts/evaluate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["prompts", "evaluate"]
+        }
+      }
+    },
+    {
+      "name": "Refine Prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Agent\": {\n    \"Name\": \"Bob\",\n    \"Department\": \"Research\",\n    \"Stats\": [\n      {\"Name\": \"Expertise\", \"Value\": 5},\n      {\"Name\": \"Quality\", \"Value\": 5},\n      {\"Name\": \"Reliability\", \"Value\": 6},\n      {\"Name\": \"Speed\", \"Value\": 3},\n      {\"Name\": \"Capacity\", \"Value\": 2}\n    ]\n  },\n  \"Task\": {\n    \"Title\": \"Write email campaign\",\n    \"Description\": \"Write an email campaign that aims to increase retention\"\n  },\n  \"Prompt\": {\n    \"Text\": \"Write an email campaign.\",\n    \"Parameters\": []\n  },\n  \"focus_parameter\": \"Clarity\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8001/prompts/refine",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["prompts", "refine"]
+        }
+      }
+    },
+    {
+      "name": "Complete Task",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"task_id\": \"task_abc123\",\n  \"Agent\": {\n    \"Name\": \"Bob\",\n    \"Department\": \"Research\",\n    \"Stats\": [\n      {\"Name\": \"Expertise\", \"Value\": 5},\n      {\"Name\": \"Quality\", \"Value\": 5},\n      {\"Name\": \"Reliability\", \"Value\": 6},\n      {\"Name\": \"Speed\", \"Value\": 3},\n      {\"Name\": \"Capacity\", \"Value\": 2}\n    ]\n  },\n  \"Task\": {\n    \"Title\": \"Write email campaign\",\n    \"Description\": \"Write an email campaign that aims to increase retention\"\n  },\n  \"Prompt\": {\n    \"Text\": \"Hey Bob! I want you to write an email campaign focused on customer retention. Include success stories and highlight our new features.\",\n    \"Parameters\": [\n      {\"Name\": \"Clarity\", \"Value\": 8},\n      {\"Name\": \"Context\", \"Value\": 7},\n      {\"Name\": \"Tone\", \"Value\": 7},\n      {\"Name\": \"Agency\", \"Value\": 6},\n      {\"Name\": \"Empathy\", \"Value\": 5}\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8001/tasks/complete",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["tasks", "complete"]
+        }
+      }
+    },
+    {
+      "name": "List All Tasks",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8001/tasks",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["tasks"]
+        }
+      }
+    },
+    {
+      "name": "Get Task by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8001/tasks/task_abc123",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["tasks", "task_abc123"]
+        }
+      }
+    },
+    {
+      "name": "Get Agent Tasks",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8001/agents/Bob/tasks",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["agents", "Bob", "tasks"]
+        }
+      }
+    }
+  ]
+}
