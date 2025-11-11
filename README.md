@@ -29,54 +29,73 @@ agent-task-assignment/
 │   ├── prompt_evaluator.py  # Prompt quality evaluation
 │   └── outcome_generator.py # Outcome generation
 └── core/                     # Core business logic
-    └── task_manager.py      # Task lifecycle management
+    └── task_manager.py       # Task management logic
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Python 3.9+
+- Python 3.9+ OR Docker
 - OpenAI API key
 
-### Installation
+### Option 1: Docker (Recommended)
 
-1. **Clone or navigate to the directory**:
+1. **Quick Docker setup:**
    ```bash
-   cd Backend/agent-task-assignment
+   # Copy environment template
+   cp .env.example .env
+   # Edit .env and add your OPENAI_API_KEY
+   
+   # Run with Docker
+   ./docker-run.sh
    ```
 
-2. **Create a virtual environment**:
+2. **Manual Docker setup:**
    ```bash
+   # Build and run
+   docker-compose up -d
+   
+   # View logs
+   docker-compose logs -f
+   ```
+
+3. **Production deployment:**
+   ```bash
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
+
+### Option 2: Local Python Installation
+
+1. **Quick setup with the provided script:**
+   ```bash
+   ./run.sh
+   ```
+
+2. **Manual setup:**
+   ```bash
+   # Create virtual environment
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
+   
+   # Install dependencies
    pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables**:
-   ```bash
+   
+   # Set up environment
    cp .env.example .env
-   # Edit .env and add your OpenAI API key
-   ```
-
-5. **Run the server**:
-   ```bash
+   # Edit .env and add your OPENAI_API_KEY
+   
+   # Start the server
    python main.py
    ```
 
-The API will be available at `http://localhost:8001`
+### Access the API
+- API: http://localhost:8001
+- Interactive Documentation: http://localhost:8001/docs
+- Health Check: http://localhost:8001/health
 
-## 📚 API Documentation
+📚 **For detailed Docker instructions, see [DOCKER.md](DOCKER.md)**
 
-Once the server is running, visit:
-- **Interactive API Docs**: http://localhost:8001/docs
-- **Alternative Docs**: http://localhost:8001/redoc
-
-## 🎮 Workflow
+## 📋 API Usage Examples
 
 ### 1. Assign a Task
 
