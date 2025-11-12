@@ -19,13 +19,12 @@ class PromptEvaluator:
         Initialize prompt evaluator
         
         Args:
-            openai_service: OpenAI service instance
         """
         self.openai_service = openai_service
     
     def calculate_base_scores(self, prompt: Prompt, agent: Agent, task: Task) -> Dict[str, float]:
         """
-        Calculate base scores from prompt parameters and text analysis
+        Calculate base prompt quality scores based on prompt parameters and agent fit
         
         Args:
             prompt: The prompt to evaluate
@@ -33,7 +32,7 @@ class PromptEvaluator:
             task: The task context
             
         Returns:
-            Dictionary of base scores
+            Dictionary of base scores for each quality metric
         """
         # Get parameter values (default to 5 if not specified)
         clarity_param = prompt.get_parameter_value("Clarity") / 10.0
@@ -42,28 +41,40 @@ class PromptEvaluator:
         agency_param = prompt.get_parameter_value("Agency") / 10.0
         empathy_param = prompt.get_parameter_value("Empathy") / 10.0
         
-        # Analyze prompt text
+        # Analyze prompt text for additional context
         text_length = len(prompt.Text)
         word_count = len(prompt.Text.split())
         has_agent_name = agent.Name.lower() in prompt.Text.lower()
-        has_task_reference = any(word in prompt.Text.lower() for word in task.Title.lower().split())
+        has_task_reference = any(word in prompt.Text.lower() for word in task.Description.lower().split()[:3])
         
         # Calculate text-based modifiers
-        length_modifier = min(1.0, text_length / 200)  # Longer prompts tend to have more context
+        length_modifier = min(1.0, text_length / 200)  # longer prompts tend to have more context
         detail_modifier = min(1.0, word_count / 30)  # More words = more detail
         personalization_modifier = 1.2 if has_agent_name else 1.0
         relevance_modifier = 1.1 if has_task_reference else 1.0
         
-        # Calculate individual scores
-        clarity_score = clarity_param * detail_modifier
-        context_score = context_param * length_modifier * relevance_modifier
-        tone_score = tone_param * personalization_modifier
-        agency_score = agency_param
-        empathy_score = empathy_param * personalization_modifier
+        # Agent stat modifiers - higher stats significantly improve prompt effectiveness
+        # Scale from 0-10 stats to meaningful multipliers (0.5x to 2.0x range)
+        expertise_modifier = 0.5 + (agent.get_stat_value("Expertise") / 10.0) * 1.5  # 0.5x to 2.0x based on expertise
+        quality_modifier = 0.6 + (agent.get_stat_value("Quality") / 10.0) * 1.2      # 0.6x to 1.8x based on quality  
+        reliability_modifier = 0.7 + (agent.get_stat_value("Reliability") / 10.0) * 1.0  # 0.7x to 1.7x based on reliability
+        speed_modifier = 0.8 + (agent.get_stat_value("Speed") / 10.0) * 0.6         # 0.8x to 1.4x based on speed
+        capacity_modifier = 0.8 + (agent.get_stat_value("Capacity") / 10.0) * 0.8   # 0.8x to 1.6x based on capacity
         
-        # Calculate agent fit based on preferences
+        # Calculate individual scores with agent stat influence
+        clarity_score = clarity_param * detail_modifier * expertise_modifier
+        context_score = context_param * length_modifier * relevance_modifier * quality_modifier
+        tone_score = tone_param * personalization_modifier * reliability_modifier
+        agency_score = agency_param * capacity_modifier  # Capacity affects how well agent handles autonomy
+        empathy_score = empathy_param * personalization_modifier * reliability_modifier
+        
+        # Calculate agent fit based on preferences and stats
         agent_autonomy_pref = agent.autonomy_preference / 10.0
         agency_fit = 1.0 - abs(agency_param - agent_autonomy_pref)
+        
+        # Apply overall skill level to agent fit
+        skill_level = agent.get_overall_skill_level() / 10.0  # Normalize to 0-1
+        agent_fit_final = agency_fit * (0.7 + 0.3 * skill_level)  # Higher skill = better adaptation
         
         return {
             "clarity_score": min(1.0, clarity_score),
@@ -71,7 +82,7 @@ class PromptEvaluator:
             "tone_score": min(1.0, tone_score),
             "agency_score": min(1.0, agency_score),
             "empathy_score": min(1.0, empathy_score),
-            "agent_fit_score": agency_fit
+            "agent_fit_score": min(1.0, agent_fit_final)
         }
     
     async def evaluate_prompt_with_ai(
@@ -113,7 +124,7 @@ Respond with a JSON object containing:
 - is_ready: boolean (whether prompt is good enough to proceed)
 """
         
-        agent_stats_str = ", ".join([f"{stat.Name}: {stat.Value}" for stat in agent.Stats])
+        agent_stats_str = ", ".join([f"{stat.Name}: {stat.StatValueObj}" for stat in agent.Stats])
         
         user_prompt = f"""Evaluate this prompt:
 

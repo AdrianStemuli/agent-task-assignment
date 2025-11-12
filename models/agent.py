@@ -2,13 +2,14 @@
 Agent models for the task assignment system
 """
 
-from pydantic import BaseModel, Field
-from typing import List
+from __future__ import annotations
+from pydantic import BaseModel
+from typing import List, Union
 from enum import Enum
 
 
 class Department(str, Enum):
-    """Available departments in the company"""
+    """Department enumeration"""
     RESEARCH = "Research"
     MARKETING = "Marketing"
     ENGINEERING = "Engineering"
@@ -21,51 +22,47 @@ class Department(str, Enum):
 class AgentStat(BaseModel):
     """Individual stat for an agent"""
     Name: str
-    Value: int
+    StatValueObj: Union[int, float]  # Support both int and float for TokenMultiplier
     
     class Config:
         schema_extra = {
             "example": {
                 "Name": "Expertise",
-                "Value": 5
+                "StatValueObj": 8
             }
         }
 
 
 class Agent(BaseModel):
     """Agent model representing an employee in the company"""
+    ID: str  # UUID from Unity
     Name: str
-    Department: Department
     Stats: List[AgentStat]
+    
+    # Optional fields for backward compatibility and additional features
+    Department: Department = Department.RESEARCH
     preferred_tone: str = "balanced"
     autonomy_preference: int = 5
     
-    class Config:
-        schema_extra = {
-            "example": {
-                "Name": "Bob",
-                "Department": "Research",
-                "Stats": [
-                    {"Name": "Expertise", "Value": 5},
-                    {"Name": "Quality", "Value": 5},
-                    {"Name": "Reliability", "Value": 6},
-                    {"Name": "Speed", "Value": 3},
-                    {"Name": "Capacity", "Value": 2}
-                ],
-                "preferred_tone": "empowering",
-                "autonomy_preference": 7
-            }
-        }
-    
-    def get_stat_value(self, stat_name: str) -> int:
+    def get_stat_value(self, stat_name: str) -> Union[int, float]:
         """Get the value of a specific stat"""
         for stat in self.Stats:
             if stat.Name.lower() == stat_name.lower():
-                return stat.Value
+                return stat.StatValueObj
         return 0
     
+    def get_token_multiplier(self) -> float:
+        """Get the token multiplier stat"""
+        return float(self.get_stat_value("TokenMultiplier") or 1.0)
+    
     def get_overall_skill_level(self) -> float:
-        """Calculate overall skill level as average of all stats"""
+        """Calculate overall skill level as average of core stats (excluding TokenMultiplier)"""
         if not self.Stats:
             return 0.0
-        return sum(stat.Value for stat in self.Stats) / len(self.Stats)
+        
+        # Exclude TokenMultiplier from skill calculation
+        core_stats = [stat for stat in self.Stats if stat.Name.lower() != "tokenmultiplier"]
+        if not core_stats:
+            return 0.0
+            
+        return sum(float(stat.StatValueObj) for stat in core_stats) / len(core_stats)

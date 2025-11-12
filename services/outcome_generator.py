@@ -45,9 +45,12 @@ class OutcomeGenerator:
         Returns:
             TaskOutcome with multiple options
         """
-        # Determine outcome distribution based on quality
+        # Determine outcome distribution based on quality and agent stats
         num_options = self._determine_num_options(quality_score)
         outcome_distribution = self._determine_outcome_distribution(quality_score)
+        
+        # Calculate agent capability modifiers
+        agent_modifiers = self._calculate_agent_modifiers(agent)
         
         system_prompt = """You are a game designer creating outcomes for a business simulation game.
 Generate realistic and engaging outcomes for completed tasks based on the prompt quality.
@@ -70,8 +73,20 @@ For LOW quality prompts (below 0.5):
 Each outcome should:
 1. Be specific to the task and department
 2. Include 1-3 stat modifiers (e.g., Revenue, Morale, Productivity, Customer Satisfaction, Brand Awareness, etc.)
-3. Have engaging narrative text explaining what happened
-4. Feel realistic and educational
+3. HEAVILY consider agent stats - outcomes should vary dramatically based on agent capabilities:
+   - High Expertise (8-10): Generate innovative solutions, catch complex issues, provide deep insights
+   - Low Expertise (1-3): Miss important details, make basic errors, need more guidance
+   - High Quality (8-10): Deliver polished, professional results that exceed expectations
+   - Low Quality (1-3): Produce work that needs significant revision or causes problems
+   - High Reliability (8-10): Consistent delivery, builds trust, prevents issues
+   - Low Reliability (1-3): Inconsistent results, creates uncertainty, may cause delays
+   - High Speed (8-10): Fast turnaround, can handle urgent requests, increases efficiency
+   - Low Speed (1-3): Slow delivery, may miss deadlines, reduces team velocity
+   - High Capacity (8-10): Can handle complex/large tasks, multitask effectively
+   - Low Capacity (1-3): Gets overwhelmed easily, needs simpler tasks, limited bandwidth
+4. Scale outcome magnitude by TokenMultiplier (0.5x to 3.0x impact on stat changes)
+5. Have engaging narrative text explaining what happened and WHY based on agent capabilities
+6. Feel realistic and educational about how employee skills affect business outcomes
 
 Respond with a JSON object containing:
 - options: array of outcome options (2-4 options)
@@ -83,7 +98,7 @@ Respond with a JSON object containing:
 - agent_feedback: string (agent's reflection on the task and prompt quality)
 """
         
-        agent_stats_str = ", ".join([f"{stat.Name}: {stat.Value}" for stat in agent.Stats])
+        agent_stats_str = ", ".join([f"{stat.Name}: {stat.StatValueObj}" for stat in agent.Stats])
         
         user_prompt = f"""Generate {num_options} outcome options for this completed task:
 
@@ -92,6 +107,7 @@ AGENT:
 - Department: {agent.Department.value}
 - Stats: {agent_stats_str}
 - Overall Skill: {agent.get_overall_skill_level():.1f}/10
+- Token Multiplier: {agent.get_token_multiplier():.1f}x
 
 TASK:
 - Title: {task.Title}
@@ -102,12 +118,13 @@ PROMPT USED:
 
 PROMPT QUALITY SCORE: {quality_score:.2f}/1.0
 
-OUTCOME DISTRIBUTION GUIDANCE:
-{json.dumps(outcome_distribution, indent=2)}
+AGENT CAPABILITY ANALYSIS:
+{agent_modifiers}
 
-Generate {num_options} distinct outcome options that reflect the prompt quality.
-Better prompts = better outcomes. Worse prompts = worse outcomes.
-Make the outcomes feel like natural consequences of the communication quality."""
+Expected outcome distribution: {outcome_distribution}
+
+Generate outcomes that reflect both the prompt quality AND the agent's capabilities. Make the agent's stats significantly influence the results.
+The outcomes should clearly show how this specific agent's strengths and weaknesses affected the task completion."""
         
         try:
             ai_response = await self.openai_service.generate_json_completion(
@@ -158,49 +175,20 @@ Make the outcomes feel like natural consequences of the communication quality.""
     def _determine_num_options(self, quality_score: float) -> int:
         """Determine number of outcome options based on quality"""
         if quality_score >= 0.8:
-            return 3  # High quality = more good options
-        elif quality_score >= 0.5:
             return 3  # Medium quality = mixed options
         else:
             return 2  # Low quality = fewer options (mostly bad)
     
-    def _determine_outcome_distribution(self, quality_score: float) -> dict:
+    def _determine_outcome_distribution(self, quality_score: float) -> str:
         """Determine the distribution of outcome types based on quality"""
         if quality_score >= 0.8:
-            return {
-                "buffs": 3,
-                "neutral": 0,
-                "debuffs": 0,
-                "description": "All positive outcomes with significant benefits"
-            }
-        elif quality_score >= 0.7:
-            return {
-                "buffs": 2,
-                "neutral": 1,
-                "debuffs": 0,
-                "description": "Mostly positive with one neutral option"
-            }
-        elif quality_score >= 0.5:
-            return {
-                "buffs": 1,
-                "neutral": 1,
-                "debuffs": 1,
-                "description": "Mixed outcomes reflecting adequate communication"
-            }
-        elif quality_score >= 0.3:
-            return {
-                "buffs": 0,
-                "neutral": 1,
-                "debuffs": 2,
-                "description": "Mostly negative with minimal benefits"
-            }
+            return "80% positive, 20% neutral"
+        elif quality_score >= 0.6:
+            return "40% positive, 40% neutral, 20% negative"
+        elif quality_score >= 0.4:
+            return "20% positive, 30% neutral, 50% negative"
         else:
-            return {
-                "buffs": 0,
-                "neutral": 0,
-                "debuffs": 2,
-                "description": "All negative outcomes due to poor communication"
-            }
+            return "10% positive, 20% neutral, 70% negative"
     
     def _generate_feedback_based_on_quality(self, quality_score: float) -> str:
         """Generate agent feedback based on quality score"""
@@ -286,3 +274,30 @@ Make the outcomes feel like natural consequences of the communication quality.""
             options=options,
             agent_feedback=self._generate_feedback_based_on_quality(quality_score)
         )
+    
+    def _calculate_agent_modifiers(self, agent: Agent) -> str:
+        """Calculate and describe agent capability modifiers"""
+        expertise = agent.get_stat_value("Expertise")
+        quality = agent.get_stat_value("Quality") 
+        reliability = agent.get_stat_value("Reliability")
+        speed = agent.get_stat_value("Speed")
+        capacity = agent.get_stat_value("Capacity")
+        token_multiplier = agent.get_token_multiplier()
+        
+        def get_level_desc(value: float) -> str:
+            if value >= 8: return "EXCELLENT"
+            elif value >= 6: return "GOOD" 
+            elif value >= 4: return "AVERAGE"
+            elif value >= 2: return "POOR"
+            else: return "VERY POOR"
+        
+        analysis = f"""- Expertise: {expertise}/10 ({get_level_desc(expertise)}) - Affects solution quality and innovation
+- Quality: {quality}/10 ({get_level_desc(quality)}) - Affects output polish and professionalism  
+- Reliability: {reliability}/10 ({get_level_desc(reliability)}) - Affects consistency and trust
+- Speed: {speed}/10 ({get_level_desc(speed)}) - Affects delivery time and efficiency
+- Capacity: {capacity}/10 ({get_level_desc(capacity)}) - Affects ability to handle complex tasks
+- Token Multiplier: {token_multiplier:.1f}x - Amplifies all outcome impacts
+
+EXPECTED PERFORMANCE: Agent will likely {'excel' if agent.get_overall_skill_level() >= 7 else 'struggle' if agent.get_overall_skill_level() <= 3 else 'perform adequately'} at this task."""
+        
+        return analysis

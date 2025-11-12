@@ -108,27 +108,23 @@ Create a task assignment with an initial prompt:
 ```json
 {
   "Agent": {
-    "Name": "Bob",
-    "Department": "Research",
+    "ID": "a77e98ce-2dc5-4abb-8e7f-e82c3cc1443c",
+    "Name": "Analyst",
     "Stats": [
-      {"Name": "Expertise", "Value": 5},
-      {"Name": "Quality", "Value": 5},
-      {"Name": "Reliability", "Value": 6},
-      {"Name": "Speed", "Value": 3},
-      {"Name": "Capacity", "Value": 2}
+      {"Name": "Expertise", "StatValueObj": 8},
+      {"Name": "Speed", "StatValueObj": 6},
+      {"Name": "Reliability", "StatValueObj": 8},
+      {"Name": "Quality", "StatValueObj": 7},
+      {"Name": "Capacity", "StatValueObj": 3},
+      {"Name": "TokenMultiplier", "StatValueObj": 1.5}
     ]
   },
   "Task": {
+    "ID": "e84f8439-8072-4b02-85b0-44d0dad335b7",
     "Title": "Write email campaign",
     "Description": "Write an email campaign that aims to increase retention"
   },
-  "Prompt": {
-    "Text": "Write an email to customers",
-    "Parameters": [
-      {"Name": "Clarity", "Value": 3},
-      {"Name": "Context", "Value": 2}
-    ]
-  }
+  "Prompt": "Please write a professional email campaign to increase customer retention. Focus on highlighting our value proposition and include a clear call-to-action."
 }
 ```
 
@@ -142,9 +138,24 @@ Get real-time feedback on your prompt:
 
 ```json
 {
-  "Agent": {...},
-  "Task": {...},
-  "Prompt": {...}
+  "Agent": {
+    "ID": "a77e98ce-2dc5-4abb-8e7f-e82c3cc1443c",
+    "Name": "Analyst",
+    "Stats": [
+      {"Name": "Expertise", "StatValueObj": 8},
+      {"Name": "Speed", "StatValueObj": 6},
+      {"Name": "Reliability", "StatValueObj": 8},
+      {"Name": "Quality", "StatValueObj": 7},
+      {"Name": "Capacity", "StatValueObj": 3},
+      {"Name": "TokenMultiplier", "StatValueObj": 1.5}
+    ]
+  },
+  "Task": {
+    "ID": "e84f8439-8072-4b02-85b0-44d0dad335b7",
+    "Title": "Write email campaign",
+    "Description": "Write an email campaign that aims to increase retention"
+  },
+  "Prompt": "Please write a professional email campaign to increase customer retention."
 }
 ```
 

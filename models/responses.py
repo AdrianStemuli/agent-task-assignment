@@ -4,13 +4,12 @@ Response models for API endpoints
 
 from __future__ import annotations
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 
 class TaskAssignmentResponse(BaseModel):
     """Response after assigning a task"""
     success: bool = Field(..., description="Whether the assignment was successful")
-    task_assignment: Any = Field(..., description="The created task assignment")
     initial_feedback: str = Field(
         ...,
         description="Initial feedback from the agent about the task"
@@ -88,6 +87,45 @@ class TaskCompletionResponse(BaseModel):
     
     class Config:
         arbitrary_types_allowed = True
+
+
+class PromptGenerationResponse(BaseModel):
+    """Response with generated base prompts for a task"""
+    success: bool = Field(..., description="Whether the generation was successful")
+    task_id: str = Field(..., description="ID of the task")
+    task_title: str = Field(..., description="Title of the task")
+    task_category: str = Field(..., description="Category of the task")
+    generated_prompts: List[str] = Field(
+        ..., 
+        description="List of generated base prompts",
+        min_items=1,
+        max_items=5
+    )
+    prompt_count: int = Field(..., description="Number of prompts generated")
+    style_applied: str = Field(..., description="Style preference that was applied")
+    agent_customized: bool = Field(..., description="Whether prompts were customized for a specific agent")
+    generation_method: str = Field(..., description="Method used for generation (template_only, template_and_ai)")
+    message: str = Field(..., description="Human-readable message")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "success": True,
+                "task_id": "e84f8439-8072-4b02-85b0-44d0dad335b7",
+                "task_title": "Write Marketing Email",
+                "task_category": "email_campaign",
+                "generated_prompts": [
+                    "Please write a professional email campaign for creating an email campaign to increase customer retention. Include a compelling subject line, clear value proposition, and strong call-to-action.",
+                    "Create an engaging email marketing campaign about creating an email campaign to increase customer retention. Focus on customer benefits and include personalization elements.",
+                    "Draft a persuasive email campaign for creating an email campaign to increase customer retention. Use a conversational tone and highlight key benefits for the target audience."
+                ],
+                "prompt_count": 3,
+                "style_applied": "professional",
+                "agent_customized": True,
+                "generation_method": "template_and_ai",
+                "message": "Generated 3 base prompts for your task"
+            }
+        }
     
 
 class ErrorResponse(BaseModel):

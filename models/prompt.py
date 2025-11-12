@@ -1,16 +1,16 @@
 """
-Prompt models for the prompt engineering system
+Prompt models for the task assignment system
 """
 
-from pydantic import BaseModel, Field
-from typing import List
+from __future__ import annotations
+from pydantic import BaseModel
+from typing import List, Optional
 from enum import Enum
 
 
 class PromptParameterType(str, Enum):
     """Types of prompt parameters that can be adjusted"""
     CLARITY = "Clarity"  # Vague → Precise
-    CONTEXT = "Context"  # Minimal → Rich
     TONE = "Tone"  # Directive → Empowering
     AGENCY = "Agency"  # Freedom → Strict direction
     EMPATHY = "Empathy"  # None → High

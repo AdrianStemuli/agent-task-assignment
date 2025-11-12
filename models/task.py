@@ -1,11 +1,12 @@
 """
-Task models for the assignment system
+Task models for the task assignment system
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+from __future__ import annotations
+from pydantic import BaseModel
 from enum import Enum
+from datetime import datetime
+from typing import Optional
 
 
 class TaskStatus(str, Enum):
@@ -59,8 +60,11 @@ class TaskCategory(str, Enum):
 
 class Task(BaseModel):
     """Task model representing work to be done"""
+    ID: str  # UUID from Unity
     Title: str
     Description: str
+    
+    # Optional fields for backward compatibility
     Category: Optional[TaskCategory] = TaskCategory.CUSTOM
     
 

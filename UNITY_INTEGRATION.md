@@ -10,6 +10,46 @@ The API provides endpoints for:
 3. Getting AI-powered refinement suggestions
 4. Generating outcomes based on prompt quality
 
+## Key Features
+
+### Agent Stats Impact
+The API now considers agent stats when evaluating prompts and generating outcomes:
+
+- **Expertise**: Improves clarity score (±25% based on expertise level)
+- **Quality**: Enhances context understanding (±15% based on quality level)  
+- **Reliability**: Affects tone interpretation (±10% based on reliability level)
+- **Speed**: Influences task completion time in outcomes
+- **Capacity**: Affects workload handling in outcomes
+- **TokenMultiplier**: Amplifies outcome impact (higher multiplier = more significant results)
+
+### Unity-Compatible Structure
+The API supports the exact object structure used in your Unity game:
+
+**Agent Example:**
+```json
+{
+  "ID": "a77e98ce-2dc5-4abb-8e7f-e82c3cc1443c",
+  "Name": "Analyst", 
+  "Stats": [
+    {"Name": "Expertise", "StatValueObj": 8},
+    {"Name": "Speed", "StatValueObj": 6},
+    {"Name": "Reliability", "StatValueObj": 8},
+    {"Name": "Quality", "StatValueObj": 7},
+    {"Name": "Capacity", "StatValueObj": 3},
+    {"Name": "TokenMultiplier", "StatValueObj": 1.5}
+  ]
+}
+```
+
+**Task Example:**
+```json
+{
+  "ID": "e84f8439-8072-4b02-85b0-44d0dad335b7",
+  "Title": "Write email",
+  "Description": "Write an email to Alice"
+}
+```
+
 ## Unity Setup
 
 ### 1. Install Dependencies
@@ -162,9 +202,12 @@ using System.Collections.Generic;
 [Serializable]
 public class Agent
 {
+    public string ID;  // UUID from Unity
     public string Name;
-    public string Department;
     public List<AgentStat> Stats;
+    
+    // Optional fields for backward compatibility
+    public string Department = "Research";
     public string preferred_tone = "balanced";
     public int autonomy_preference = 5;
 }
@@ -173,15 +216,18 @@ public class Agent
 public class AgentStat
 {
     public string Name;
-    public int Value;
+    public float StatValueObj;  // Changed from Value to StatValueObj, supports float for TokenMultiplier
 }
 
 [Serializable]
 public class Task
 {
+    public string ID;  // UUID from Unity
     public string Title;
     public string Description;
-    public string Category;
+    
+    // Optional field for backward compatibility
+    public string Category = "custom";
 }
 
 [Serializable]
@@ -559,8 +605,6 @@ public class PromptEditorUI : MonoBehaviour
         
         taskManager.OnPromptChanged(promptInputField.text, parameters);
     }
-    
-    public void UpdateQualityIndicator(float score)
     {
         // Update color based on score
         if (score >= 0.8f)
