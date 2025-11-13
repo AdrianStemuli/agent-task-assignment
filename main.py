@@ -445,12 +445,20 @@ async def complete_task(request: TaskCompletionRequest) -> TaskCompletionRespons
         task_obj = convert_task_input(request.Task)
         prompt = convert_prompt_input(request.Prompt)
         
+        # Use the Task's ID directly
+        task_id = task_obj.ID
+        if not task_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Task object must contain an ID for completion"
+            )
+        
         # Verify task exists
-        task = task_manager.get_task(request.task_id)
+        task = task_manager.get_task(task_id)
         if not task:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Task {request.task_id} not found"
+                detail=f"Task {task_id} not found"
             )
         
         # Evaluate final prompt quality
@@ -462,7 +470,7 @@ async def complete_task(request: TaskCompletionRequest) -> TaskCompletionRespons
         
         # Generate outcomes
         outcome = await outcome_generator.generate_outcomes(
-            task_id=request.task_id,
+            task_id=task_id,
             agent=agent,
             task=task_obj,
             prompt=prompt,
@@ -470,7 +478,7 @@ async def complete_task(request: TaskCompletionRequest) -> TaskCompletionRespons
         )
         
         # Update task status
-        task_manager.update_task_status(request.task_id, task.status.__class__.COMPLETED)
+        task_manager.update_task_status(task_id, task.status.__class__.COMPLETED)
         
         return TaskCompletionResponse(
             success=True,

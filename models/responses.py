@@ -4,12 +4,19 @@ Response models for API endpoints
 
 from __future__ import annotations
 from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models.task import TaskAssignment
 
 
 class TaskAssignmentResponse(BaseModel):
     """Response after assigning a task"""
     success: bool = Field(..., description="Whether the assignment was successful")
+    task_assignment: Any = Field(
+        ...,
+        description="The created task assignment with task_id and details"
+    )
     initial_feedback: str = Field(
         ...,
         description="Initial feedback from the agent about the task"

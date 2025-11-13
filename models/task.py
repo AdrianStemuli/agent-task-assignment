@@ -70,12 +70,16 @@ class Task(BaseModel):
 
 class TaskAssignment(BaseModel):
     """Complete task assignment with agent and task details"""
-    task_id: str
     agent_name: str
     task: Task
     status: TaskStatus = TaskStatus.PENDING
     assigned_at: datetime = None
     completed_at: Optional[datetime] = None
+    
+    @property
+    def task_id(self) -> str:
+        """Get the task ID from the Task object"""
+        return self.task.ID
     
     def __init__(self, **data):
         if 'assigned_at' not in data or data['assigned_at'] is None:

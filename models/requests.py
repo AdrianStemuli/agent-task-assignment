@@ -144,11 +144,6 @@ class PromptRefinementRequest(BaseModel):
 
 class TaskCompletionRequest(BaseModel):
     """Request to complete a task and generate outcomes"""
-    task_id: str = Field(
-        ..., 
-        description="ID of the task to complete",
-        example="task_43adea39dcf7"
-    )
     Agent: Any = Field(
         ..., 
         description="The agent who completed the task (Unity object or string)",

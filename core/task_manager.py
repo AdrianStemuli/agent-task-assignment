@@ -34,10 +34,10 @@ class TaskManager:
         Returns:
             Created TaskAssignment
         """
-        task_id = f"task_{uuid.uuid4().hex[:12]}"
+        # Use the Task's ID directly as the task identifier
+        task_id = task.ID
         
         assignment = TaskAssignment(
-            task_id=task_id,
             agent_name=agent.Name,
             task=task,
             status=TaskStatus.PENDING,
