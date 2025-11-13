@@ -2,11 +2,12 @@
 Service for evaluating prompt quality and generating feedback
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from models.agent import Agent
 from models.task import Task
 from models.prompt import Prompt, PromptParameterType
 from models.responses import PromptQualityMetrics, AgentFeedbackResponse
+from models.requests import FocusParameter
 from .openai_service import OpenAIService
 import json
 
@@ -245,7 +246,7 @@ Provide your evaluation as JSON."""
         prompt: Prompt,
         agent: Agent,
         task: Task,
-        focus_parameter: str = None
+        focus_parameter: Optional[List[FocusParameter]] = None
     ) -> Tuple[str, Dict[str, str], float]:
         """
         Suggest refinements to improve the prompt
@@ -254,7 +255,7 @@ Provide your evaluation as JSON."""
             prompt: The current prompt
             agent: The agent who will receive the prompt
             task: The task context
-            focus_parameter: Optional specific parameter to focus on
+            focus_parameter: Optional list of focus parameters with names and values (1-10)
             
         Returns:
             Tuple of (refined_prompt_text, improvements_dict, expected_improvement)
@@ -269,7 +270,13 @@ Respond with a JSON object containing:
 - expected_improvement: float (0-1, how much better the refined prompt should be)
 """
         
-        focus_text = f"\nFOCUS ON: {focus_parameter}" if focus_parameter else ""
+        # Build focus text from FocusParameter list
+        focus_text = ""
+        if focus_parameter and len(focus_parameter) > 0:
+            focus_items = []
+            for param in focus_parameter:
+                focus_items.append(f"{param.Name} (priority: {param.Value}/10)")
+            focus_text = f"\nFOCUS ON: {', '.join(focus_items)}"
         
         user_prompt = f"""Refine this prompt:
 
@@ -311,7 +318,7 @@ Provide a refined version that improves clarity, context, tone, agency, and empa
         prompt: Prompt,
         agent: Agent,
         task: Task,
-        focus_parameter: str = None
+        focus_parameter: Optional[List[FocusParameter]] = None
     ) -> str:
         """Generate a simple fallback refinement"""
         base_text = prompt.Text

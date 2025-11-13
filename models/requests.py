@@ -4,7 +4,23 @@ Request models for API endpoints
 
 from __future__ import annotations
 from pydantic import BaseModel, Field
-from typing import Optional, Any
+from typing import Optional, Any, List
+
+
+class FocusParameter(BaseModel):
+    """A focus parameter for prompt refinement"""
+    Name: str = Field(
+        ...,
+        description="The name of the focus parameter",
+        example="Agency"
+    )
+    Value: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="The value of the focus parameter (1-10, default 5)",
+        example=7
+    )
 
 
 class TaskAssignmentRequest(BaseModel):
@@ -113,10 +129,13 @@ class PromptRefinementRequest(BaseModel):
         description="The current prompt to refine",
         example="Write an email to Alice"
     )
-    focus_parameter: Optional[str] = Field(
+    focus_parameter: Optional[List[FocusParameter]] = Field(
         default=None,
-        description="Specific parameter to focus on (Clarity, Context, Tone, Agency, Empathy)",
-        example="Clarity"
+        description="List of focus parameters to emphasize during refinement. Each parameter has a Name and Value (1-10, default 5)",
+        example=[
+            {"Name": "Agency", "Value": 1},
+            {"Name": "Clarity", "Value": 7}
+        ]
     )
     
     class Config:
