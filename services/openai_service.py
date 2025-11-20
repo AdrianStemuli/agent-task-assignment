@@ -59,7 +59,7 @@ class OpenAIService:
             "model": self.model,
             "messages": messages,
             "temperature": temperature or self.temperature,
-            "max_tokens": max_tokens or self.max_tokens
+           
         }
         
         if response_format:
