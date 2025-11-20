@@ -1,0 +1,24 @@
+[
+  {
+    "approach": "sequential",
+    "total_time": 0.0004119873046875,
+    "step1_time": 0.0002460479736328125,
+    "step2_time": 0.00011897087097167969,
+    "quality_score": 0.6859394444444445,
+    "options_count": 1
+  },
+  {
+    "approach": "parallel",
+    "total_time": 0.0009000301361083984,
+    "parallel_time": 0.0007576942443847656,
+    "quality_score": 0.6859394444444445,
+    "options_count": 1
+  },
+  {
+    "approach": "ultra_optimized",
+    "total_time": 0.10164093971252441,
+    "ultra_time": 0.10155129432678223,
+    "quality_score": 0.6859394444444445,
+    "options_count": 2
+  }
+]

@@ -58,8 +58,10 @@ class OpenAIService:
         kwargs = {
             "model": self.model,
             "messages": messages,
-           
         }
+        
+        # Use the correct parameter name based on the model
+       
         
         if response_format:
             kwargs["response_format"] = response_format

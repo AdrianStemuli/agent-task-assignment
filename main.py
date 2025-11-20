@@ -6,7 +6,9 @@ Main FastAPI application entry point
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from typing import Dict, Any
 import uvicorn
+from parallel import generate_prompt_quality, generate_agent_feedback, generate_narrative
 
 from config import settings
 from models.requests import (
@@ -16,6 +18,7 @@ from models.requests import (
     TaskCompletionRequest,
     PromptGenerationRequest
 )
+import asyncio
 from models.responses import (
     TaskAssignmentResponse,
     PromptEvaluationResponse,
@@ -28,7 +31,14 @@ from core.task_manager import TaskManager
 from services.openai_service import OpenAIService
 from services.prompt_evaluator import PromptEvaluator
 from services.outcome_generator import OutcomeGenerator
+from services.parallel_outcome_generator import ParallelOutcomeGenerator
 from services.prompt_generator import PromptGenerator
+from models.models import Stat, Agent, Task, RequestBody
+from  dotenv import load_dotenv
+import uuid
+
+load_dotenv()
+
 
 # Utility functions for converting inputs
 def convert_agent_input(agent_input):
@@ -127,30 +137,31 @@ def convert_prompt_input(prompt_input):
 from models.agent import Agent
 from models.task import Task  
 from models.prompt import Prompt
-
 # Rebuild models to resolve any forward references
 Task.model_rebuild()
 Agent.model_rebuild()
 Prompt.model_rebuild()
 
-# Global instances
+# Global service instances
 task_manager = TaskManager()
 openai_service = None
 prompt_evaluator = None
 outcome_generator = None
+parallel_outcome_generator = None
 prompt_generator = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def Lifecycle(app: FastAPI):
     """Lifespan context manager for startup and shutdown"""
-    global openai_service, prompt_evaluator, outcome_generator, prompt_generator
+    global openai_service, prompt_evaluator, outcome_generator, parallel_outcome_generator, prompt_generator
     
     # Startup
     try:
         openai_service = OpenAIService()
         prompt_evaluator = PromptEvaluator(openai_service)
         outcome_generator = OutcomeGenerator(openai_service)
+        parallel_outcome_generator = ParallelOutcomeGenerator(openai_service)
         prompt_generator = PromptGenerator(openai_service)
         print("✓ Agent Task Assignment System initialized successfully")
         print(f"✓ OpenAI Model: {openai_service.model}")
@@ -193,7 +204,7 @@ app = FastAPI(
     - **Empathy**: None (1) → High (10)
     """,
     version=settings.app_version,
-    lifespan=lifespan
+    lifespan=Lifecycle
 )
 
 # Add CORS middleware
@@ -433,66 +444,145 @@ async def complete_task(request: TaskCompletionRequest) -> TaskCompletionRespons
     
     Better prompts lead to better outcomes!
     """
-    if not outcome_generator:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OpenAI service not configured. Set OPENAI_API_KEY environment variable."
-        )
+    response  = run_task(request)
+    return response
+    # if not parallel_outcome_generator:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    #         detail="OpenAI service not configured. Set OPENAI_API_KEY environment variable."
+    #     )
     
-    try:
-        # Convert inputs to proper objects
-        agent = convert_agent_input(request.Agent)
-        task_obj = convert_task_input(request.Task)
-        prompt = convert_prompt_input(request.Prompt)
+    # try:
+    #     # Convert inputs to proper objects
+    #     agent = convert_agent_input(request.Agent)
+    #     task_obj = convert_task_input(request.Task)
+    #     prompt = convert_prompt_input(request.Prompt)
         
-        # Use the Task's ID directly
-        task_id = task_obj.ID
-        if not task_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Task object must contain an ID for completion"
-            )
+    #     # Use the Task's ID directly
+    #     task_id = task_obj.ID
+    #     if not task_id:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_400_BAD_REQUEST,
+    #             detail="Task object must contain an ID for completion"
+    #         )
         
-        # Verify task exists
-        task = task_manager.get_task(task_id)
-        if not task:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Task {task_id} not found"
-            )
+    #     # Verify task exists
+    #     task = task_manager.get_task(task_id)
+    #     if not task:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_404_NOT_FOUND,
+    #             detail=f"Task {task_id} not found"
+    #         )
         
-        # Evaluate final prompt quality
-        quality_metrics, _, _ = await prompt_evaluator.evaluate_prompt_with_ai(
-            prompt=prompt,
-            agent=agent,
-            task=task_obj
-        )
+    #     # Run prompt evaluation and outcome generation in parallel
+    #     import asyncio
         
-        # Generate outcomes
-        outcome = await outcome_generator.generate_outcomes(
-            task_id=task_id,
-            agent=agent,
-            task=task_obj,
-            prompt=prompt,
-            quality_score=quality_metrics.overall_score
-        )
+    #     # Create tasks for parallel execution
+    #     evaluation_task = prompt_evaluator.evaluate_prompt_with_ai(
+    #         prompt=prompt,
+    #         agent=agent,
+    #         task=task_obj
+    #     )
         
-        # Update task status
-        task_manager.update_task_status(task_id, task.status.__class__.COMPLETED)
+    #     # For outcome generation, we'll use a base quality score initially
+    #     # and then adjust if needed based on the evaluation
+    #     base_quality_score = prompt_evaluator.calculate_base_scores(prompt, agent, task_obj)
+    #     estimated_quality = sum(base_quality_score.values()) / len(base_quality_score)
         
-        return TaskCompletionResponse(
-            success=True,
-            outcome=outcome,
-            message="Task completed successfully"
-        )
+    #     outcome_task = parallel_outcome_generator.generate_outcomes(
+    #         task_id=task_id,
+    #         agent=agent,
+    #         task=task_obj,
+    #         prompt=prompt,
+    #         quality_score=estimated_quality
+    #     )
         
-    except HTTPException:
-        raise
-    except Exception as e:
+    #     # Wait for both to complete
+    #     (quality_metrics, _, _), outcome = await asyncio.gather(evaluation_task, outcome_task)
+        
+    #     # Update the outcome with the actual quality score
+    #     outcome.prompt_quality_score = quality_metrics.overall_score
+        
+    #     # Update task status
+    #     task_manager.update_task_status(task_id, task.status.__class__.COMPLETED)
+        
+    #     return TaskCompletionResponse(
+    #         success=True,
+    #         outcome=outcome,
+    #         message="Task completed successfully"
+    #     )
+        
+    # except HTTPException:
+    #     raise
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         detail=f"Failed to complete task: {str(e)}"
+    #     )
+
+
+@app.post("/run-task")
+async def run_task(data: TaskCompletionRequest):
+
+    agent = convert_agent_input(data.Agent)
+    task = convert_task_input(data.Task)
+    prompt = convert_prompt_input(data.Prompt)
+    
+
+
+    task_id = task.ID
+    if not task_id:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to complete task: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Task object must contain an ID for completion"
         )
+        
+    # Verify task exists
+    task_obj = task_manager.get_task(task_id)
+    if not task_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Task {task_id} not found"
+        )
+
+    (
+        prompt_quality,
+        agent_feedback,
+        narrative_text,
+    ) = await asyncio.gather(
+        generate_prompt_quality(prompt),
+        generate_agent_feedback(agent.Name, task.Title, prompt),
+        generate_narrative(task.Title, agent.Name)
+    )
+
+    outcome = {
+        "task_id": task.ID,
+        "agent_name": agent.Name,
+        "prompt_quality_score": prompt_quality,
+        "options": [
+            {
+                "option_id": f"outcome_{uuid.uuid4().hex[:8]}",
+                "title": f"Adequate {task.Title}",
+                "description": f"{agent.Name} completed the task with acceptable results.",
+                "outcome_type": "neutral",
+                "stat_modifiers": [
+                    {
+                        "stat_name": "Productivity",
+                        "change": 2,
+                        "percentage": True
+                    }
+                ],
+                "narrative_text": narrative_text
+            }
+        ],
+        "agent_feedback": agent_feedback
+    }
+
+    return {
+        "success": True,
+        "outcome": outcome,
+        "message": "Task completed successfully"
+    }
 
 
 @app.get(
@@ -590,18 +680,141 @@ async def generate_base_prompts(request: PromptGenerationRequest) -> PromptGener
 
 @app.get(
     "/agents/{agent_name}/tasks",
-    tags=["Task Management"],
-    summary="Get agent's tasks",
-    description="Get all tasks assigned to a specific agent."
+    response_model=Dict[str, Any],
+    tags=["Agent Management"],
+    summary="Get tasks for a specific agent",
+    description="Retrieve all tasks assigned to a specific agent by name."
 )
-async def get_agent_tasks(agent_name: str):
-    """Get all tasks for a specific agent"""
-    tasks = task_manager.get_agent_tasks(agent_name)
+async def get_agent_tasks(agent_name: str) -> Dict[str, Any]:
+    """
+    Get all tasks assigned to a specific agent
+    
+    Args:
+        agent_name: Name of the agent to get tasks for
+        
+    Returns:
+        Dictionary containing agent name, tasks, and total count
+    """
+    tasks = task_manager.get_tasks_by_agent(agent_name)
+    
     return {
         "agent_name": agent_name,
         "tasks": tasks,
         "total": len(tasks)
     }
+
+
+@app.post(
+    "/benchmark/task-completion",
+    response_model=Dict[str, Any],
+    tags=["Testing"],
+    summary="Benchmark task completion performance",
+    description="Compare performance between original and optimized task completion approaches."
+)
+async def benchmark_task_completion(request: TaskCompletionRequest) -> Dict[str, Any]:
+    """
+    Benchmark task completion performance
+    
+    This endpoint compares the original sequential approach with the new parallel approach
+    to demonstrate performance improvements.
+    """
+    if not parallel_outcome_generator or not outcome_generator:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI service not configured. Set OPENAI_API_KEY environment variable."
+        )
+    
+    import time
+    import asyncio
+    
+    try:
+        # Convert inputs to proper objects
+        agent = convert_agent_input(request.Agent)
+        task_obj = convert_task_input(request.Task)
+        prompt = convert_prompt_input(request.Prompt)
+        
+        # Ensure task has an ID for the benchmark
+        if not task_obj.ID:
+            import uuid
+            task_obj.ID = str(uuid.uuid4())
+        
+        # Test original sequential approach
+        start_time = time.time()
+        
+        quality_metrics_orig, _, _ = await prompt_evaluator.evaluate_prompt_with_ai(
+            prompt=prompt,
+            agent=agent,
+            task=task_obj
+        )
+        
+        outcome_orig = await outcome_generator.generate_outcomes(
+            task_id=task_obj.ID,
+            agent=agent,
+            task=task_obj,
+            prompt=prompt,
+            quality_score=quality_metrics_orig.overall_score
+        )
+        
+        original_duration = time.time() - start_time
+        
+        # Test new parallel approach
+        start_time = time.time()
+        
+        evaluation_task = prompt_evaluator.evaluate_prompt_with_ai(
+            prompt=prompt,
+            agent=agent,
+            task=task_obj
+        )
+        
+        base_quality_score = prompt_evaluator.calculate_base_scores(prompt, agent, task_obj)
+        estimated_quality = sum(base_quality_score.values()) / len(base_quality_score)
+        
+        outcome_task = parallel_outcome_generator.generate_outcomes(
+            task_id=task_obj.ID,
+            agent=agent,
+            task=task_obj,
+            prompt=prompt,
+            quality_score=estimated_quality
+        )
+        
+        (quality_metrics_new, _, _), outcome_new = await asyncio.gather(evaluation_task, outcome_task)
+        outcome_new.prompt_quality_score = quality_metrics_new.overall_score
+        
+        parallel_duration = time.time() - start_time
+        
+        # Calculate improvement
+        improvement = ((original_duration - parallel_duration) / original_duration) * 100
+        
+        return {
+            "benchmark_results": {
+                "original_duration_seconds": round(original_duration, 3),
+                "parallel_duration_seconds": round(parallel_duration, 3),
+                "performance_improvement_percent": round(improvement, 1),
+                "speedup_factor": round(original_duration / parallel_duration, 2)
+            },
+            "quality_comparison": {
+                "original_quality_score": round(quality_metrics_orig.overall_score, 3),
+                "parallel_quality_score": round(quality_metrics_new.overall_score, 3),
+                "quality_difference": round(abs(quality_metrics_orig.overall_score - quality_metrics_new.overall_score), 3)
+            },
+            "outcome_comparison": {
+                "original_options_count": len(outcome_orig.options),
+                "parallel_options_count": len(outcome_new.options),
+                "sample_parallel_option": {
+                    "title": outcome_new.options[0].title if outcome_new.options else "None",
+                    "outcome_type": outcome_new.options[0].outcome_type.value if outcome_new.options else "None"
+                }
+            },
+            "recommendation": "Use parallel approach" if improvement > 10 else "Marginal improvement" if improvement > 0 else "Original approach faster"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Benchmark failed: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
