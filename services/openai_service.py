@@ -58,7 +58,6 @@ class OpenAIService:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "temperature": temperature or self.temperature,
            
         }
         
