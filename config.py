@@ -17,7 +17,7 @@ class Settings:
         
         # OpenAI Configuration
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-5-nano-2025-08-07")
         self.openai_temperature = float(os.getenv("OPENAI_TEMPERATURE", "0.7"))
         self.openai_max_tokens = int(os.getenv("OPENAI_MAX_TOKENS", "1500"))
         
