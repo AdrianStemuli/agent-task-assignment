@@ -391,18 +391,18 @@ async def refine_prompt(data: RequestBodyRefine):
     Get suggestions for refining a prompt.
     
     This endpoint:
-    - Analyzes the current prompt
-    - Generates an improved version
+    - Analyzes the current prompt 
+    - Generates an improved version based on the calrity so defualt is 5 which means clear 5> means more clear and 5< means less clear
     - Explains what was improved
     - Estimates quality improvement
     """
-
+    calarity = data.focus_parameter[1].Value
     focus_summary = ", ".join([f"{f.Name}: {f.Value}" for f in data.focus_parameter])
 
     system_message = (
-        "You are a prompt refinement assistant. Return ONLY valid JSON with exactly these keys:\n"
+        "You are a prompt refinement assistant you will refine prompt only if calrity param is greater than 5 and in case of less than 5 you have to make prompt more unclear. Return ONLY valid JSON with exactly these keys:\n"
         "{\n"
-        "  \"refined_prompt_text\": string,\n"
+        f"  \"refined_prompt_text\": string based on the calrity param its current value is {calarity} . if its value is greater than 5 then make it more clear and if its value is less than 5 then make it more unclear then the initial prompt that is {data.Prompt}. (STRICTLY FOLLOW THIS),\n"
         "  \"improvements\": {\n"
         "       \"structure_and_template\": string,\n"
         "       \"clarity_and_empathy\": string,\n"
@@ -413,15 +413,17 @@ async def refine_prompt(data: RequestBodyRefine):
         "  },\n"
         "  \"expected_quality_improvement\": number (0-1),\n"
         "  \"agent_feedback\": {\n"
-        "       \"emotion\": string,\n"
-        "       \"feedback_text\": string,\n"
+        f"       \"emotion\": string,\n"
+        f"       \"feedback_text\": string based on the calrity param its current value is {calarity} . if its value is greater than feedback can be good but in case of less than 5 feedback should have to  be bad,\n"
         "       \"visual_indicator\": string\n"
         "  },\n"
         "  \"suggestions\": [string],\n"
         "  \"is_ready\": boolean\n"
         "}\n"
-        "Generate the refined prompt and detailed feedback including emotion, suggestions, and readiness."
+        f"Generate the refined prompt and detailed feedback including emotion, suggestions, and readiness based on the calrity param its current value is {calarity} . if its value is greater than 5 then make it more clear and if its value is less than 5 then make it more unclear. and it will also effect the agent feedback"
     )
+
+
 
     user_message = f"""
     Agent Name: {data.Agent.Name}
