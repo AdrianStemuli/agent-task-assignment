@@ -18,3 +18,14 @@ class RequestBody(BaseModel):
     Agent: Agent
     Task: Task
     Prompt: str
+
+class Focus(BaseModel):
+    Name: str
+    Value: float
+
+
+class RequestBodyRefine(BaseModel):
+    Agent: Agent
+    Task: Task
+    Prompt: str
+    focus_parameter: List[Focus]

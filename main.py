@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import Dict, Any
 import uvicorn
+import json
 from parallel import generate_prompt_quality, generate_agent_feedback, generate_narrative
 
 from config import settings
@@ -33,11 +34,16 @@ from services.prompt_evaluator import PromptEvaluator
 from services.outcome_generator import OutcomeGenerator
 from services.parallel_outcome_generator import ParallelOutcomeGenerator
 from services.prompt_generator import PromptGenerator
-from models.models import Stat, Agent, Task, RequestBody
+from models.models import RequestBodyRefine, Stat, Agent, Task, RequestBody,RequestBodyRefine
 from  dotenv import load_dotenv
 import uuid
-
+from openai import AsyncOpenAI
+import os
 load_dotenv()
+
+
+
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 # Utility functions for converting inputs
@@ -373,14 +379,14 @@ async def evaluate_prompt(request: PromptEvaluationRequest) -> PromptEvaluationR
         )
 
 
+
 @app.post(
     "/prompts/refine",
-    response_model=PromptRefinementResponse,
     tags=["Prompt Engineering"],
     summary="Get prompt refinement suggestions",
     description="Get AI-powered suggestions to improve your prompt. Optionally focus on a specific parameter."
 )
-async def refine_prompt(request: PromptRefinementRequest) -> PromptRefinementResponse:
+async def refine_prompt(data: RequestBodyRefine):
     """
     Get suggestions for refining a prompt.
     
@@ -390,39 +396,64 @@ async def refine_prompt(request: PromptRefinementRequest) -> PromptRefinementRes
     - Explains what was improved
     - Estimates quality improvement
     """
-    if not prompt_evaluator:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OpenAI service not configured. Set OPENAI_API_KEY environment variable."
-        )
-    
-    try:
-        # Convert inputs to proper objects
-        agent = convert_agent_input(request.Agent)
-        task = convert_task_input(request.Task)
-        prompt = convert_prompt_input(request.Prompt)
-        
-        # Get refinement suggestions
-        refined_text, improvements, expected_improvement = await prompt_evaluator.suggest_refinements(
-            prompt=prompt,
-            agent=agent,
-            task=task,
-            focus_parameter=request.focus_parameter
-        )
-        
-        return PromptRefinementResponse(
-            success=True,
-            refined_prompt_text=refined_text,
-            improvements=improvements,
-            expected_quality_improvement=expected_improvement,
-            message="Prompt refinement suggestions generated"
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refine prompt: {str(e)}"
-        )
+
+    focus_summary = ", ".join([f"{f.Name}: {f.Value}" for f in data.focus_parameter])
+
+    system_message = (
+        "You are a prompt refinement assistant. Return ONLY valid JSON with exactly these keys:\n"
+        "{\n"
+        "  \"refined_prompt_text\": string,\n"
+        "  \"improvements\": {\n"
+        "       \"structure_and_template\": string,\n"
+        "       \"clarity_and_empathy\": string,\n"
+        "       \"proactive_clarification\": string,\n"
+        "       \"output_format_specification\": string,\n"
+        "       \"input_definitions\": string,\n"
+        "       \"agency_mechanics\": string\n"
+        "  },\n"
+        "  \"expected_quality_improvement\": number (0-1),\n"
+        "  \"agent_feedback\": {\n"
+        "       \"emotion\": string,\n"
+        "       \"feedback_text\": string,\n"
+        "       \"visual_indicator\": string\n"
+        "  },\n"
+        "  \"suggestions\": [string],\n"
+        "  \"is_ready\": boolean\n"
+        "}\n"
+        "Generate the refined prompt and detailed feedback including emotion, suggestions, and readiness."
+    )
+
+    user_message = f"""
+Agent Name: {data.Agent.Name}
+Task: {data.Task.Title}
+Original Prompt: {data.Prompt}
+Focus Parameters: {focus_summary}
+"""
+
+    response = await client.chat.completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message}
+        ],
+        max_tokens=400
+    )
+
+    raw = response.choices[0].message.content
+    result = json.loads(raw)
+
+    return {
+        "success": True,
+        "refined_prompt_text": result["refined_prompt_text"],
+        "improvements": result["improvements"],
+        "expected_quality_improvement": result["expected_quality_improvement"],
+        "agent_feedback": result["agent_feedback"],
+        "suggestions": result["suggestions"],
+        "is_ready": result["is_ready"],
+        "message": "Prompt refinement suggestions and feedback generated"
+    }
+
 
 
 @app.post(
@@ -432,7 +463,7 @@ async def refine_prompt(request: PromptRefinementRequest) -> PromptRefinementRes
     summary="Complete a task and generate outcomes",
     description="Mark a task as complete and generate outcome options based on prompt quality."
 )
-async def complete_task(request: TaskCompletionRequest) -> TaskCompletionResponse:
+async def run_task(data: RequestBody):
     """
     Complete a task and generate outcomes.
     
@@ -444,146 +475,65 @@ async def complete_task(request: TaskCompletionRequest) -> TaskCompletionRespons
     
     Better prompts lead to better outcomes!
     """
-    response  = run_task(request)
-    return response
-    # if not parallel_outcome_generator:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-    #         detail="OpenAI service not configured. Set OPENAI_API_KEY environment variable."
-    #     )
-    
-    # try:
-    #     # Convert inputs to proper objects
-    #     agent = convert_agent_input(request.Agent)
-    #     task_obj = convert_task_input(request.Task)
-    #     prompt = convert_prompt_input(request.Prompt)
-        
-    #     # Use the Task's ID directly
-    #     task_id = task_obj.ID
-    #     if not task_id:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_400_BAD_REQUEST,
-    #             detail="Task object must contain an ID for completion"
-    #         )
-        
-    #     # Verify task exists
-    #     task = task_manager.get_task(task_id)
-    #     if not task:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND,
-    #             detail=f"Task {task_id} not found"
-    #         )
-        
-    #     # Run prompt evaluation and outcome generation in parallel
-    #     import asyncio
-        
-    #     # Create tasks for parallel execution
-    #     evaluation_task = prompt_evaluator.evaluate_prompt_with_ai(
-    #         prompt=prompt,
-    #         agent=agent,
-    #         task=task_obj
-    #     )
-        
-    #     # For outcome generation, we'll use a base quality score initially
-    #     # and then adjust if needed based on the evaluation
-    #     base_quality_score = prompt_evaluator.calculate_base_scores(prompt, agent, task_obj)
-    #     estimated_quality = sum(base_quality_score.values()) / len(base_quality_score)
-        
-    #     outcome_task = parallel_outcome_generator.generate_outcomes(
-    #         task_id=task_id,
-    #         agent=agent,
-    #         task=task_obj,
-    #         prompt=prompt,
-    #         quality_score=estimated_quality
-    #     )
-        
-    #     # Wait for both to complete
-    #     (quality_metrics, _, _), outcome = await asyncio.gather(evaluation_task, outcome_task)
-        
-    #     # Update the outcome with the actual quality score
-    #     outcome.prompt_quality_score = quality_metrics.overall_score
-        
-    #     # Update task status
-    #     task_manager.update_task_status(task_id, task.status.__class__.COMPLETED)
-        
-    #     return TaskCompletionResponse(
-    #         success=True,
-    #         outcome=outcome,
-    #         message="Task completed successfully"
-    #     )
-        
-    # except HTTPException:
-    #     raise
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         detail=f"Failed to complete task: {str(e)}"
-    #     )
-
-
-@app.post("/run-task")
-async def run_task(data: TaskCompletionRequest):
-
-    agent = convert_agent_input(data.Agent)
-    task = convert_task_input(data.Task)
-    prompt = convert_prompt_input(data.Prompt)
-    
-
-
-    task_id = task.ID
-    if not task_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task object must contain an ID for completion"
-        )
-        
-    # Verify task exists
-    task_obj = task_manager.get_task(task_id)
-    if not task_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Task {task_id} not found"
-        )
-
-    (
-        prompt_quality,
-        agent_feedback,
-        narrative_text,
-    ) = await asyncio.gather(
-        generate_prompt_quality(prompt),
-        generate_agent_feedback(agent.Name, task.Title, prompt),
-        generate_narrative(task.Title, agent.Name)
-    )
-
-    outcome = {
-        "task_id": task.ID,
-        "agent_name": agent.Name,
-        "prompt_quality_score": prompt_quality,
-        "options": [
+    # ONE ultra-optimized OpenAI call to generate everything
+    response = await client.chat.completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        response_format={"type": "json_object"},
+        messages=[
             {
-                "option_id": f"outcome_{uuid.uuid4().hex[:8]}",
-                "title": f"Adequate {task.Title}",
-                "description": f"{agent.Name} completed the task with acceptable results.",
-                "outcome_type": "neutral",
-                "stat_modifiers": [
-                    {
-                        "stat_name": "Productivity",
-                        "change": 2,
-                        "percentage": True
-                    }
-                ],
-                "narrative_text": narrative_text
+                "role": "system",
+                "content": (
+                    "You generate ALL of the following in ONE JSON:\n\n"
+                    "- prompt quality score between 0 and 1\n"
+                    "- short agent_feedback sentence (Judge prompt its fine or you need to refine it or need more context)\n"
+                    "- short narrative_text\n\n"
+                    "Return only JSON with keys: prompt_quality_score, agent_feedback, narrative_text"
+                )
+            },
+            {
+                "role": "user",
+                "content": f"""
+                Agent: {data.Agent.Name}
+                Task: {data.Task.Title}
+                Prompt: {data.Prompt}
+                """
             }
         ],
-        "agent_feedback": agent_feedback
-    }
+        max_tokens=150
+    )
 
-    return {
+    raw = response.choices[0].message.content
+    result = json.loads(raw)
+
+    # Build the final output
+    output = {
         "success": True,
-        "outcome": outcome,
+        "outcome": {
+            "task_id": data.Task.ID,
+            "agent_name": data.Agent.Name,
+            "prompt_quality_score": result["prompt_quality_score"],
+            "options": [
+                {
+                    "option_id": f"outcome_{uuid.uuid4().hex[:8]}",
+                    "title": f"Adequate {data.Task.Title}",
+                    "description": f"{data.Agent.Name} completed the task with acceptable results.",
+                    "outcome_type": "neutral",
+                    "stat_modifiers": [
+                        {
+                            "stat_name": "Productivity",
+                            "change": 2,
+                            "percentage": True
+                        }
+                    ],
+                    "narrative_text": result["narrative_text"]
+                }
+            ],
+            "agent_feedback": result["agent_feedback"]
+        },
         "message": "Task completed successfully"
     }
 
+    return output
 
 @app.get(
     "/tasks/{task_id}",
