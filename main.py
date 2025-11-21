@@ -396,7 +396,14 @@ async def refine_prompt(data: RequestBodyRefine):
     - Explains what was improved
     - Estimates quality improvement
     """
-    calarity = data.focus_parameter[1].Value
+    
+
+    calarity = 5  # default
+    for f in data.focus_parameter:
+        if f.Name == "Clarity":
+            calarity = f.Value
+            break
+
     focus_summary = ", ".join([f"{f.Name}: {f.Value}" for f in data.focus_parameter])
 
     system_message = (
