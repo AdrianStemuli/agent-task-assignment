@@ -396,7 +396,7 @@ async def refine_prompt(data: RequestBodyRefine):
     - Explains what was improved
     - Estimates quality improvement
     """
-    
+    print(data)
 
     calarity = 5  # default
     for f in data.focus_parameter:
@@ -429,6 +429,7 @@ async def refine_prompt(data: RequestBodyRefine):
         "}\n"
         f"Generate the refined prompt and detailed feedback including emotion, suggestions, and readiness based on the calrity param its current value is {calarity} . if its value is greater than 5 then make it more clear and if its value is less than 5 then make it more unclear. and it will also effect the agent feedback"
     )
+
 
 
 
