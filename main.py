@@ -439,7 +439,7 @@ async def refine_prompt(data: RequestBodyRefine):
             {"role": "system", "content": system_message},
             {"role": "user", "content": user_message}
         ],
-        max_tokens=400
+        max_tokens=500
     )
 
     raw = response.choices[0].message.content
