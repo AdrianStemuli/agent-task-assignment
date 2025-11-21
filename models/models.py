@@ -29,3 +29,8 @@ class RequestBodyRefine(BaseModel):
     Task: Task
     Prompt: str
     focus_parameter: List[Focus]
+
+class RequestBodyGenerate(BaseModel):
+    Task: Task
+    Agent: Agent
+    style_preference: str

@@ -34,7 +34,7 @@ from services.prompt_evaluator import PromptEvaluator
 from services.outcome_generator import OutcomeGenerator
 from services.parallel_outcome_generator import ParallelOutcomeGenerator
 from services.prompt_generator import PromptGenerator
-from models.models import RequestBodyRefine, Stat, Agent, Task, RequestBody,RequestBodyRefine
+from models.models import RequestBodyRefine, Stat, Agent, Task, RequestBody,RequestBodyRefine,RequestBodyGenerate
 from  dotenv import load_dotenv
 import uuid
 from openai import AsyncOpenAI
@@ -424,11 +424,11 @@ async def refine_prompt(data: RequestBodyRefine):
     )
 
     user_message = f"""
-Agent Name: {data.Agent.Name}
-Task: {data.Task.Title}
-Original Prompt: {data.Prompt}
-Focus Parameters: {focus_summary}
-"""
+    Agent Name: {data.Agent.Name}
+    Task: {data.Task.Title}
+    Original Prompt: {data.Prompt}
+    Focus Parameters: {focus_summary}
+    """
 
     response = await client.chat.completions.create(
         model="gpt-4.1-nano-2025-04-14",
@@ -567,15 +567,16 @@ async def list_tasks():
     }
 
 
+
+
 @app.post(
     "/prompts/generate",
-    response_model=PromptGenerationResponse,
     status_code=status.HTTP_200_OK,
     tags=["Prompt Engineering"],
     summary="Generate base prompts for a task",
     description="Generate multiple base prompt suggestions for a given task. Optionally customize for a specific agent and style."
 )
-async def generate_base_prompts(request: PromptGenerationRequest) -> PromptGenerationResponse:
+async def generate_prompts(data: RequestBodyGenerate):
     """
     Generate base prompts for a task.
     
@@ -588,45 +589,49 @@ async def generate_base_prompts(request: PromptGenerationRequest) -> PromptGener
     
     Perfect for getting started with effective task prompts!
     """
-    if not prompt_generator:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Prompt generation service not available."
-        )
-    
-    try:
-        # Convert inputs to proper objects
-        task = convert_task_input(request.Task)
-        agent = convert_agent_input(request.Agent) if request.Agent else None
-        
-        # Generate base prompts
-        result = await prompt_generator.generate_base_prompt(
-            task=task,
-            agent=agent,
-            style_preference=request.style_preference
-        )
-        
-        return PromptGenerationResponse(
-            success=True,
-            task_id=result["task_id"],
-            task_title=result["task_title"],
-            task_category=result["task_category"],
-            generated_prompts=result["generated_prompts"],
-            prompt_count=result["prompt_count"],
-            style_applied=result["style_applied"],
-            agent_customized=result["agent_customized"],
-            generation_method=result["generation_method"],
-            message=f"Generated {result['prompt_count']} base prompts for your task"
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate prompts: {str(e)}"
-        )
 
+    system_prompt = (
+        "You are a prompt generation engine. "
+        "Given a task description, agent info, and style preference, generate 5 diverse, high-quality task prompts. "
+        "Each prompt should be a concise but clear instruction, incorporating style and agent's expertise. "
+        "Return ONLY a JSON object with keys: "
+        "\"generated_prompts\" (list of 5 strings)."
+    )
+
+    user_prompt = f"""
+    Task Description: {data.Task.Description}
+    Task Title: {data.Task.Title}
+    Agent Name: {data.Agent.Name}
+    Agent Stats: {', '.join(f'{s.Name}: {s.StatValueObj}' for s in data.Agent.Stats)}
+    Style Preference: {data.style_preference}
+    """
+
+    response = await client.chat.completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        max_tokens=350,
+        response_format={"type": "json_object"}
+    )
+
+    raw = response.choices[0].message.content
+    result = json.loads(raw)
+
+    # Build full response
+    return {
+        "success": True,
+        "task_id": data.Task.ID,
+        "task_title": data.Task.Title,
+        "task_category": "custom",
+        "generated_prompts": result["generated_prompts"],
+        "prompt_count": len(result["generated_prompts"]),
+        "style_applied": data.style_preference,
+        "agent_customized": True,
+        "generation_method": "template_and_ai",
+        "message": f"Generated {len(result['generated_prompts'])} base prompts for your task"
+    }
 
 @app.get(
     "/agents/{agent_name}/tasks",
